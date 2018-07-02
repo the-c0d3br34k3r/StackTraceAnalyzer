@@ -1,0 +1,215 @@
+<!DOCTYPE HTML>
+<html>
+<head>  
+	<select id="version" onchange="">
+		<option>v1</option>
+		<option>v2</option>
+		<option>v2</option>
+	</select>
+	<select id="graph_type" onchange="changeGraph()">
+		<option>Module Reference Heat</option>
+		<option>File Reference Heat</option>
+		<option>Line Reference Heat</option>
+	</select>
+	<canvas id="chart" width="100%" height="100%"></canvas>
+	<script src="js/Chart.bundle.js"></script>
+	<script>
+		var repoBaseLink = "https://github.com";
+		var heatMap = {
+			'com.pop.admin': {
+				'abc.java': {
+					24: 45,
+					1: 10,
+					87:30,
+					5:32
+				},
+				'pqr.java': {
+					24: 50,
+					1: 20,
+					87:30,
+					5:10
+				}
+			},
+			'com.pop.client': {
+				'lol.java': {
+					24: 1,
+					1: 2,
+					87: 3,
+					5: 4
+				},
+				'xyz.java': {
+					24: 5,
+					1: 6,
+					87: 7,
+					5: 8
+				}
+			}
+		}
+		var graphOfInterest = {}
+		var y_data = [90,78,23]
+		var x_data = ['pop1', 'pop2', 'pop3']
+		var chartObj = null;
+
+		function generateRepoLink(module, file="", lineNo=-1) {
+			var url = null;
+			if(module != null) {
+				url = repoBaseLink + "/" + module.replace("\.", "/");
+				if(file != null) {
+					url = url + "/" + file;
+					if(lineNo !=null) {
+						url = url + "#L"+lineNo;
+					}
+				}
+			}
+			else {
+				console.log("module cannot be null!")
+				url = null;
+			}
+			return url;
+		}
+
+		function changeGraph() {
+			var graph_type = document.getElementById("graph_type").value;
+    		if(graph_type==="Module Reference Heat") {
+    			populateModuleReferenceHeat(true);
+    		}
+    		else if(graph_type==="File Reference Heat") {
+    			populateCodeFileReferenceHeat(true);
+    		}
+    		else if(graph_type==="Line Reference Heat") {
+    			populateCodeFileLineReferenceHeat(true);
+	    			document.getElementById("chart").onclick = function(evt){
+				    var activePoint = chartObj.getElementAtEvent(evt);
+				    if(activePoint[0] != null) {
+				    	codeRef = chartObj.data.labels[activePoint[0]._index].split(":");
+					    console.log('activePoint', chartObj.data.labels[activePoint[0]._index])
+					    console.log('url', generateRepoLink("abc", codeRef[0], codeRef[1]))
+					}
+				    // var url = ... make link with data from activePoint
+				    //window.location = 'https://www.google.by/search?q=chart+js+events&oq=chart+js+events'
+				};
+    		}
+    		else {
+    			console.log("Inavlid graph type!!!")
+    		}
+		}
+
+		function refreshGraph(sortYDesc) {
+			x_data = [];
+			y_data = [];
+			if(sortYDesc) {
+				// Create items array
+				var items = Object.keys(graphOfInterest).map(function(key) {
+				  return [key, graphOfInterest[key]];
+				});
+
+				// Sort the array based on the second element
+				items.sort(function(first, second) {
+				  return second[1] - first[1];
+				});
+
+				x_data = items.map(function(x) {
+					return x[0];
+				});
+
+				y_data = items.map(function(x) {
+					return x[1];
+				});
+
+			}
+			else {
+				x_data = Object.keys(graphOfInterest);
+				y_data = Object.keys(graphOfInterest).map(function(key){
+						    return graphOfInterest[key];
+						});
+			}
+			if(chartObj != null) {
+				chartObj.destroy();
+			}
+			var ctx = document.getElementById("chart").getContext('2d');
+			var chartParameters = {
+			    type: 'horizontalBar',
+			    data: {
+			        labels: Object.keys(graphOfInterest),//["Red", "Blue", "Yellow", "Green", "Purple", "Orange"],
+			        datasets: [{
+			            label: 'Hit Count',
+			            data: y_data,
+			            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+			            borderColor: 'rgba(255,99,132,1)',
+			            borderWidth: 1
+			        }]
+			    },
+			    options: {
+			        scales: {
+			            yAxes: [{
+			                ticks: {
+			                    beginAtZero:true
+			                }
+			            }],
+			            xAxes: [{
+			                ticks: {
+			                    beginAtZero:true
+			                }
+			            }]
+
+			        }
+			    }
+			}
+			chartObj = new Chart(ctx, chartParameters);
+		}
+
+		function populateModuleReferenceHeat(sortYDesc) {
+			graphOfInterest = {}
+			for(var module in heatMap) {
+				if(!(module in graphOfInterest)) {
+					graphOfInterest[module] = 0;
+				}
+				for(var file in heatMap[module]) {
+					for(var line in heatMap[module][file]) {
+						graphOfInterest[module] += heatMap[module][file][line];
+					}
+				}
+ 				console.log(module, graphOfInterest[module]);
+			}
+			refreshGraph(sortYDesc); 
+		}
+
+		function populateCodeFileReferenceHeat(sortYDesc) {
+			graphOfInterest = {}
+			for(var module in heatMap) {
+				for(var file in heatMap[module]) {
+					if(!(file in graphOfInterest)) {
+						graphOfInterest[file] = 0;
+					}
+					for(var line in heatMap[module][file]) {
+						graphOfInterest[file] += heatMap[module][file][line];
+					}
+				}
+ 				console.log(module, graphOfInterest[file]);
+			}
+			refreshGraph(sortYDesc); 
+		}
+
+		function populateCodeFileLineReferenceHeat(sortYDesc) {
+			graphOfInterest = {}
+			for(var module in heatMap) {
+				for(var file in heatMap[module]) {
+					for(var line in heatMap[module][file]) {
+						if(!((file+":"+line) in graphOfInterest)) {
+							graphOfInterest[file+":"+line] = 0;
+						}
+						graphOfInterest[file+":"+line] += heatMap[module][file][line];
+					}
+				}
+ 				console.log(module, graphOfInterest[file+":"+line]);
+			}
+			refreshGraph(sortYDesc); 
+		}
+
+		changeGraph();
+	</script>
+</head>
+<body>
+
+</body>
+</html>
